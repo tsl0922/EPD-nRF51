@@ -147,49 +147,6 @@ function canvas2bytes(canvas, type='bw') {
   return arr;
 }
 
-function bytes2canvas(bytes, canvas) {
-  const ctx = canvas.getContext("2d");
-  const imageData = ctx.createImageData(canvas.width, canvas.height);
-
-  let buffer = [];
-  for (let byte of bytes) {
-    const binaryString = byte.toString(2).padStart(8, '0');
-    buffer.push(...binaryString.split('').map(bit => parseInt(bit, 10)));
-  }
-  let len = buffer.length;
-
-  // bw
-  for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      const i = (canvas.width * y + x) * 4;
-      const bit = buffer.shift();
-      const value = bit === 0 ? 0 : 255;
-      imageData.data[i] = value;     // R
-      imageData.data[i + 1] = value; // G
-      imageData.data[i + 2] = value; // B
-      imageData.data[i + 3] = 255;   // A
-    }
-  }
-
-  // red
-  if (buffer.length * 2 == len) {
-    for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      const i = (canvas.width * y + x) * 4;
-      const bit = buffer.shift();
-      if (bit === 0) {
-        imageData.data[i] = 255;     // R
-        imageData.data[i + 1] = 0;   // G
-        imageData.data[i + 2] = 0;   // B
-        imageData.data[i + 3] = 255; // A
-      }
-    }
-  }
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-}
-
 function getColorDistance(rgba1, rgba2) {
   const [r1, b1, g1] = rgba1;
   const [r2, b2, g2] = rgba2;

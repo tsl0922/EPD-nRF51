@@ -39,7 +39,7 @@ async function sendCommand(cmd) {
 }
 
 async function sendcmd(cmdTXT) {
-	addLog(`发送命令: ${cmdTXT}`);
+	addLog(`<span class="action">⇑</span> ${cmdTXT}`);
 	await sendCommand(hexToBytes(cmdTXT));
 }
 
@@ -71,9 +71,6 @@ async function sendCmWithData(cmd, data){
 }
 
 async function send4GrayLut() {
-	await sendcmd("0300");
-	await sendcmd("043F"); // Load LUT from register
-
 	await sendCmWithData("20", "000A0000000160141400000100140000000100130A010001000000000000000000000000000000000000"); // vcom
 	await sendCmWithData("21", "400A0000000190141400000110140A000001A01301000001000000000000000000000000000000000000"); // red not use
 	await sendCmWithData("22", "400A0000000190141400000100140A000001990C01030401000000000000000000000000000000000000"); // bw r
@@ -82,11 +79,29 @@ async function send4GrayLut() {
 	await sendCmWithData("25", "400A0000000190141400000110140A000001A01301000001000000000000000000000000000000000000"); // vcom
 }
 
-async function sendimg(cmdIMG) {
+function getImageData(canvas, driver, mode) {
+	if (mode === '4gray') {
+		return bytesToHex(canvas2gray(canvas));
+	} else {
+		let data = bytesToHex(canvas2bytes(canvas, 'bw'));
+		if (driver === '03') {
+			if (mode.startsWith('bwr')) {
+				data += bytesToHex(canvas2bytes(canvas, 'red'));
+			} else {
+				const count = data.length;
+				data += 'F'.repeat(count);
+			}
+		}
+		return data;
+	}
+}
+
+async function sendimg() {
 	startTime = new Date().getTime();
+	const canvas = document.getElementById("canvas");
 	const driver = document.getElementById("epddriver").value;
 	const mode = document.getElementById('dithering').value;
-	const imgArray = cmdIMG.replace(/(?:\r\n|\r|\n|,|0x| )/g, '');
+	const imgArray = getImageData(canvas, driver, mode);
 	const bwArrLen = (canvas.width/8) * canvas.height * 2;
 
 	if (imgArray.length == bwArrLen * 2) {
@@ -95,10 +110,14 @@ async function sendimg(cmdIMG) {
 	} else {
 		await sendCmWithData(driver === "03" ? "10" : "13", imgArray);
 	}
+
 	if (mode === "4gray") {
+		await sendcmd("0300");
+		await sendcmd("043F"); // Load LUT from register
 		await send4GrayLut();
 		await sendcmd("05");
-		await sendcmd(`01${driver}`); // restore lut
+		await sendcmd("0300");
+		await sendcmd("041F"); // Load LUT from OTP
 	} else {
 		await sendcmd("05");
 	}
@@ -111,6 +130,7 @@ async function sendimg(cmdIMG) {
 function updateButtonStatus() {
 	const connected = gattServer != null && gattServer.connected;
 	const status = connected ? null : 'disabled';
+	document.getElementById("reconnectbutton").disabled = (gattServer == null || gattServer.connected) ? 'disabled' : null;
 	document.getElementById("sendcmdbutton").disabled = status;
 	document.getElementById("clearscreenbutton").disabled = status;
 	document.getElementById("sendimgbutton").disabled = status;
@@ -118,10 +138,10 @@ function updateButtonStatus() {
 }
 
 function disconnect() {
+	updateButtonStatus();
 	resetVariables();
 	addLog('已断开连接.');
 	document.getElementById("connectbutton").innerHTML = '连接';
-	updateButtonStatus();
 }
 
 async function preConnect() {
@@ -133,10 +153,16 @@ async function preConnect() {
 	}
 	else {
 		connectTrys = 0;
-		bleDevice = await navigator.bluetooth.requestDevice({
-			optionalServices: ['62750001-d828-918d-fb46-b6c11c675aec'],
-			acceptAllDevices: true
-		});
+		try {
+			bleDevice = await navigator.bluetooth.requestDevice({
+				optionalServices: ['62750001-d828-918d-fb46-b6c11c675aec'],
+				acceptAllDevices: true
+			});
+		} catch (e) {
+			addLog(e.message);
+			return;
+		}
+
 		await bleDevice.addEventListener('gattserverdisconnected', disconnect);
 		try {
 			await connect();
@@ -156,21 +182,21 @@ async function reConnect() {
 }
 
 async function connect() {
-	if (epdCharacteristic == null) {
+	if (epdCharacteristic == null && bleDevice != null) {
 		addLog("正在连接: " + bleDevice.name);
 
 		gattServer = await bleDevice.gatt.connect();
-		addLog('> 找到 GATT Server');
+		addLog('  找到 GATT Server');
 
 		epdService = await gattServer.getPrimaryService('62750001-d828-918d-fb46-b6c11c675aec');
-		addLog('> 找到 EPD Service');
+		addLog('  找到 EPD Service');
 
 		epdCharacteristic = await epdService.getCharacteristic('62750002-d828-918d-fb46-b6c11c675aec');
-		addLog('> 找到 Characteristic');
+		addLog('  找到 Characteristic');
 
 		await epdCharacteristic.startNotifications();
 		epdCharacteristic.addEventListener('characteristicvaluechanged', (event) => {
-			addLog(`> 收到配置：${bytesToHex(event.target.value.buffer)}`);
+			addLog(`<span class="action">⇓</span> ${bytesToHex(event.target.value.buffer)}`);
 			document.getElementById("epdpins").value = bytesToHex(event.target.value.buffer.slice(0, 7));
 			document.getElementById("epddriver").value = bytesToHex(event.target.value.buffer.slice(7, 8));
 		});
@@ -187,13 +213,17 @@ function setStatus(statusText) {
 }
 
 function addLog(logTXT) {
-	const today = new Date();
-	const time = ("0" + today.getHours()).slice(-2) + ":" + ("0" + today.getMinutes()).slice(-2) + ":" + ("0" + today.getSeconds()).slice(-2) + " : ";
-	document.getElementById("log").innerHTML += time + logTXT + '<br>';
-	console.log(time + logTXT);
-	while ((document.getElementById("log").innerHTML.match(/<br>/g) || []).length > 10) {
-		var logs_br_position = document.getElementById("log").innerHTML.search("<br>");
-		document.getElementById("log").innerHTML = document.getElementById("log").innerHTML.substring(logs_br_position + 4);
+	const log = document.getElementById("log");
+	const now = new Date();
+	const time = String(now.getHours()).padStart(2, '0') + ":" +
+				 String(now.getMinutes()).padStart(2, '0') + ":" +
+				 String(now.getSeconds()).padStart(2, '0') + " ";
+	log.innerHTML += '<span class="time">' + time + '</span>' + logTXT + '<br>';
+	log.scrollTop = log.scrollHeight;
+	while ((log.innerHTML.match(/<br>/g) || []).length > 20) {
+		var logs_br_position = log.innerHTML.search("<br>");
+		log.innerHTML = log.innerHTML.substring(logs_br_position + 4);
+		log.scrollTop = log.scrollHeight;
 	}
 }
 
@@ -213,24 +243,6 @@ function bytesToHex(data) {
 function intToHex(intIn) {
 	let stringOut = ("0000" + intIn.toString(16)).substr(-4)
 	return stringOut.substring(2, 4) + stringOut.substring(0, 2);
-}
-
-function updateImageData(canvas) {
-	const driver = document.getElementById("epddriver").value;
-	const mode = document.getElementById('dithering').value;
-	if (mode === '4gray') {
-		document.getElementById('cmdIMAGE').value = bytesToHex(canvas2gray(canvas));
-	} else {
-		document.getElementById('cmdIMAGE').value = bytesToHex(canvas2bytes(canvas, 'bw'));
-		if (driver === '03') {
-			if (mode.startsWith('bwr')) {
-				document.getElementById('cmdIMAGE').value += bytesToHex(canvas2bytes(canvas, 'red'));
-			} else {
-				const count = document.getElementById('cmdIMAGE').value.length;
-				document.getElementById('cmdIMAGE').value += 'F'.repeat(count);
-			}
-		}
-	}
 }
 
 async function update_image () {
@@ -258,7 +270,6 @@ function clear_canvas() {
 		const ctx = canvas.getContext("2d");
 		ctx.fillStyle = 'white';
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
-		document.getElementById('cmdIMAGE').value = '';
 	}
 }
 
@@ -272,7 +283,6 @@ function convert_dithering() {
 	} else {
 		dithering(ctx, canvas.width, canvas.height, parseInt(document.getElementById('threshold').value), mode);
 	}
-	updateImageData(canvas);
 }
 
 document.body.onload = () => {

@@ -3,7 +3,7 @@
 <head>
 	<title>4.2 寸电子墨水屏蓝牙控制器</title>
 	<style type="text/css">
-		.main { width: 800px; margin: 0 auto;}
+		.main { width: 950px; margin: 0 auto;}
 		h3 { padding-bottom: .3em; border-bottom: 1px solid #CCC; }
 		fieldset { border: 2px dotted #AAA; padding: 10px; margin-bottom: 10px; }
 		fieldset legend { font-weight: bold; }
@@ -12,8 +12,9 @@
 		#toolbar { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dotted #AAA;}
 		#status { margin: 10px 0; }
 		#filebox { margin-bottom: 10px; }
-		#cmdIMAGE { width: 350px; height: 300px; float: right}
-		#log { width: 100%; min-height: 200px; margin-top: 10px; background: #DDD; }
+		#log { width: 500px; height: 300px; margin: 0;background: #DDD; float: right; overflow: auto; }
+		#log .time { color: #333; }
+		#log .action {color: #666; }
 		#canvas-box { margin-top: 10px; }
 	</style>
 </head>
@@ -35,7 +36,7 @@
 				<button id="setDriverbutton" type="button" onclick="setDriver();">确认</button>
 			</div>
 			<button id="connectbutton" type="button" onclick="preConnect();">连接</button>
-			<button type="button" onclick="reConnect();">重连</button>
+			<button id="reconnectbutton" type="button" onclick="reConnect();">重连</button>
 		</fieldset>
 
 		<fieldset>
@@ -48,12 +49,13 @@
 				</div>
 				<div style="margin-bottom: 10px;">
 					<button id="clearscreenbutton" type="button" onclick="clear_canvas();">清除画布</button>
-					<button id="sendimgbutton" type="button" onclick="sendimg(document.getElementById(&quot;cmdIMAGE&quot;).value);">发送图片</button>
+					<button id="sendimgbutton" type="button" onclick="sendimg();">发送图片</button>
 				</div>
 				<div style="font-size: 85%; color: #666;"><b>状态：</b><span id="status"></span></div>
 			</div>
 			<div id="sendimg">
 				<div id="filebox">
+					<button type="button" onclick="document.getElementById('log').innerHTML = '';" style="float: right;">清空日志</button>
 					<input type="file" id="image_file" onchange="update_image()" accept=".png,.jpg,.bmp,.webp,.jpeg">
 					取模算法：
 					<select id="dithering" title="取模算法" onchange="update_image()">
@@ -74,15 +76,9 @@
 					阈值:
 					<input type="number" max="255" min="0" value="125" id="threshold" onchange="update_image()">
 				</div>
-				<textarea id="cmdIMAGE"></textarea>
+				<div id="log"></div>
 				<canvas id="canvas" width="400" height="300" style="border: black solid 1px;"></canvas>
 			</div>
-		</fieldset>
-
-		<fieldset>
-			<legend>日志</legend>
-			<button type="button" onclick="document.getElementById('log').innerHTML = '';">清空日志</button>
-			<div id="log"></div>
 		</fieldset>
 		<fieldset>
 			<legend>提示</legend>
