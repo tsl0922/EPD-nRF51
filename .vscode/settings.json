@@ -1,0 +1,27 @@
+{
+    "files.associations": {
+        "optional": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "ratio": "cpp",
+        "system_error": "cpp",
+        "array": "cpp",
+        "functional": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "*.tcc": "cpp",
+        "chrono": "cpp",
+        "ctime": "cpp",
+        "limits": "cpp",
+        "numeric": "cpp",
+        "streambuf": "cpp",
+        "unordered_map": "cpp",
+        "fstream": "cpp",
+        "sstream": "cpp",
+        "random": "cpp",
+        "*.tpp": "cpp",
+        "climits": "cpp",
+        "cstdlib": "cpp"
+    }
+}
