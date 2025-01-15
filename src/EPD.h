@@ -25,7 +25,7 @@
 
 void EPDInit();
 void EPDClear();
-void EPDDrawCalendar(uint32_t timestamp);
+void EPDDrawCalendar(uint32_t timestamp, bool partial = false);
 
 class EPDUartImage
 {

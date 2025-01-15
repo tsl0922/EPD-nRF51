@@ -6,6 +6,12 @@
 GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> display(GxEPD2_DRIVER_CLASS(EPD_CS_PIN, EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN));
 
 U8G2_FOR_ADAFRUIT_GFX u8g2Fonts;
+struct
+{
+    uint16_t year;
+    uint8_t month;
+    uint8_t day;
+} onscreen;
 
 void EPDInit()
 {
@@ -20,83 +26,130 @@ void EPDClear()
     display.refresh();
 }
 
-void EPDDrawCalendar(uint32_t timestamp)
+static void drawDateHeader(int16_t x, int16_t y, tm_t &tm, struct Lunar_Date &Lunar)
+{
+    u8g2Fonts.setCursor(x, y);
+    u8g2Fonts.setFont(u8g2_font_wqy12b_t_lunar);
+    u8g2Fonts.setForegroundColor(GxEPD_BLACK);
+    u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
+    u8g2Fonts.printf("%d年%02d月%02d日 星期%s", tm.tm_year + YEAR0, tm.tm_mon + 1, tm.tm_mday, Lunar_DayString[tm.tm_wday]);
+
+    LUNAR_SolarToLunar(&Lunar, tm.tm_year + YEAR0, tm.tm_mon + 1, tm.tm_mday);
+    u8g2Fonts.setFont(u8g2_font_wqy9_t_lunar);
+    u8g2Fonts.setCursor(x + 226, y);
+    u8g2Fonts.printf("农历: %s%s%s %s%s[%s]年", Lunar_MonthLeapString[Lunar.IsLeap], Lunar_MonthString[Lunar.Month],
+                     Lunar_DateString[Lunar.Date], Lunar_StemStrig[LUNAR_GetStem(&Lunar)],
+                     Lunar_BranchStrig[LUNAR_GetBranch(&Lunar)], Lunar_ZodiacString[LUNAR_GetZodiac(&Lunar)]);
+}
+
+static void drawWeekHeader(int16_t x, int16_t y)
+{
+    u8g2Fonts.setForegroundColor(GxEPD_WHITE);
+    u8g2Fonts.setBackgroundColor(display.epd2.hasColor ? GxEPD_RED : GxEPD_BLACK);
+    display.fillRect(x, y, 380, 18, display.epd2.hasColor ? GxEPD_RED : GxEPD_BLACK);
+    for (int i = 0; i < 7; i++)
+    {
+        u8g2Fonts.setCursor(x + 15 + i * 55, y + 14);
+        u8g2Fonts.print(Lunar_DayString[i]);
+    }
+}
+
+static void drawMonthDay(int16_t x, int16_t y, tm_t &tm, struct Lunar_Date &Lunar, uint8_t day)
+{
+    if (day == tm.tm_mday)
+    {
+        display.fillCircle(x + 10, y + 9, 22, display.epd2.hasColor ? GxEPD_RED : GxEPD_BLACK);
+        u8g2Fonts.setForegroundColor(GxEPD_WHITE);
+        u8g2Fonts.setBackgroundColor(display.epd2.hasColor ? GxEPD_RED : GxEPD_BLACK);
+    }
+    else
+    {
+        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
+        u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
+    }
+
+    u8g2Fonts.setFont(u8g2_font_wqy12b_t_lunar);
+    u8g2Fonts.setCursor(x + 2, y + 4);
+    u8g2Fonts.print(day);
+
+    u8g2Fonts.setFont(u8g2_font_wqy9_t_lunar);
+    u8g2Fonts.setCursor(x, y + 24);
+    uint8_t JQdate;
+    if (GetJieQi(tm.tm_year + YEAR0, tm.tm_mon + 1, day, &JQdate) && JQdate == day)
+    {
+        uint8_t JQ = (tm.tm_mon + 1 - 1) * 2;
+        if (day >= 15)
+            JQ++;
+        if (display.epd2.hasColor)
+            u8g2Fonts.setForegroundColor(GxEPD_RED);
+        u8g2Fonts.print(JieQiStr[JQ]);
+    }
+    else
+    {
+        LUNAR_SolarToLunar(&Lunar, tm.tm_year + YEAR0, tm.tm_mon + 1, day);
+        if (Lunar.Date == 1)
+            u8g2Fonts.print(Lunar_MonthString[Lunar.Month]);
+        else
+            u8g2Fonts.print(Lunar_DateString[Lunar.Date]);
+    }
+}
+
+void EPDDrawCalendar(uint32_t timestamp, bool partial)
 {
     tm_t tm = {0};
     struct Lunar_Date Lunar;
     transformTime(timestamp, &tm);
-    uint16_t year = tm.tm_year + YEAR0;
-    uint8_t week = day_of_week_get(tm.tm_mon + 1, tm.tm_mday, year);
-    uint16_t highlightColor = display.epd2.hasColor ? GxEPD_RED : GxEPD_BLACK;
 
-    display.firstPage();
-    do
+    partial = partial && (onscreen.year == tm.tm_year) && (onscreen.month == tm.tm_mon);
+
+    uint8_t firstDayWeek = get_first_day_week(tm.tm_year + YEAR0, tm.tm_mon + 1);
+    uint8_t monthMaxDays = thisMonthMaxDays(tm.tm_year + YEAR0, tm.tm_mon + 1);
+
+    if (partial && !display.epd2.hasColor)
     {
-        display.fillScreen(GxEPD_WHITE);
-        u8g2Fonts.setCursor(10, 22);
-        u8g2Fonts.setFont(u8g2_font_wqy12b_t_lunar);
-        u8g2Fonts.setForegroundColor(GxEPD_BLACK);
-        u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
-        u8g2Fonts.printf("%d年%02d月%02d日 星期%s", year, tm.tm_mon + 1, tm.tm_mday, Lunar_DayString[week]);
-
-        LUNAR_SolarToLunar(&Lunar, year, tm.tm_mon + 1, tm.tm_mday);
-        u8g2Fonts.setFont(u8g2_font_wqy9_t_lunar);
-        u8g2Fonts.setCursor(236, 22);
-        u8g2Fonts.printf("农历: %s%s%s %s%s[%s]年", Lunar_MonthLeapString[Lunar.IsLeap], Lunar_MonthString[Lunar.Month],
-                         Lunar_DateString[Lunar.Date], Lunar_StemStrig[LUNAR_GetStem(&Lunar)],
-                         Lunar_BranchStrig[LUNAR_GetBranch(&Lunar)], Lunar_ZodiacString[LUNAR_GetZodiac(&Lunar)]);
-
-        u8g2Fonts.setForegroundColor(GxEPD_WHITE);
-        u8g2Fonts.setBackgroundColor(highlightColor);
-        display.fillRect(10, 26, 380, 18, highlightColor);
-        for (int i = 0; i < 7; i++)
+        display.setPartialWindow(0, 0, 400, 25);
+        display.firstPage();
+        do
         {
-            u8g2Fonts.setCursor(25 + i * 55, 40);
-            u8g2Fonts.print(Lunar_DayString[i]);
-        }
+            display.fillScreen(GxEPD_WHITE);
+            drawDateHeader(10, 22, tm, Lunar);
+        } while (display.nextPage());
 
-        uint8_t firstDayWeek = get_first_day_week(year, tm.tm_mon + 1);
-        uint8_t monthMaxDays = thisMonthMaxDays(year, tm.tm_mon + 1);
-        for (int i = 0; i < monthMaxDays; i++)
+        for (uint8_t i = 0; i < monthMaxDays; i++)
         {
-            if (i == tm.tm_mday - 1)
+            if ((onscreen.day > 0 && i + 1 == onscreen.day) || i + 1 == tm.tm_mday)
             {
-                display.fillCircle(22 + (firstDayWeek + i) % 7 * 55 + 10, 60 + (firstDayWeek + i) / 7 * 50 + 9, 20, highlightColor);
-                u8g2Fonts.setForegroundColor(GxEPD_WHITE);
-                u8g2Fonts.setBackgroundColor(highlightColor);
-            }
-            else
-            {
-                u8g2Fonts.setForegroundColor(GxEPD_BLACK);
-                u8g2Fonts.setBackgroundColor(GxEPD_WHITE);
-            }
-
-            u8g2Fonts.setFont(u8g2_font_wqy12b_t_lunar);
-            u8g2Fonts.setCursor(22 + (firstDayWeek + i) % 7 * 55 + 2, 60 + (firstDayWeek + i) / 7 * 50 + 4);
-            u8g2Fonts.print(i + 1);
-
-            u8g2Fonts.setFont(u8g2_font_wqy9_t_lunar);
-            u8g2Fonts.setCursor(22 + (firstDayWeek + i) % 7 * 55, 80 + (firstDayWeek + i) / 7 * 50 + 4);
-            uint8_t JQdate;
-            if (GetJieQi(year, tm.tm_mon + 1, i + 1, &JQdate) && JQdate == i + 1)
-            {
-                uint8_t JQ = (tm.tm_mon + 1 - 1) * 2;
-                if (i + 1 >= 15)
-                    JQ++;
-                if (display.epd2.hasColor)
-                    u8g2Fonts.setForegroundColor(GxEPD_RED);
-                u8g2Fonts.print(JieQiStr[JQ]);
-            }
-            else
-            {
-                LUNAR_SolarToLunar(&Lunar, year, tm.tm_mon + 1, i + 1);
-                if (Lunar.Date == 1)
-                    u8g2Fonts.print(Lunar_MonthString[Lunar.Month]);
-                else
-                    u8g2Fonts.print(Lunar_DateString[Lunar.Date]);
+                display.setPartialWindow(10 + (firstDayWeek + i) % 7 * 55, 45 + (firstDayWeek + i) / 7 * 50, 45, 50);
+                display.firstPage();
+                do
+                {
+                    display.fillScreen(GxEPD_WHITE);
+                    drawMonthDay(22 + (firstDayWeek + i) % 7 * 55, 60 + (firstDayWeek + i) / 7 * 50, tm, Lunar, i + 1);
+                } while (display.nextPage());
             }
         }
-    } while (display.nextPage());
+    }
+    else
+    {
+        display.setFullWindow();
+        display.firstPage();
+        do
+        {
+            display.fillScreen(GxEPD_WHITE);
+
+            drawDateHeader(10, 22, tm, Lunar);
+            drawWeekHeader(10, 26);
+
+            for (uint8_t i = 0; i < monthMaxDays; i++)
+            {
+                drawMonthDay(22 + (firstDayWeek + i) % 7 * 55, 60 + (firstDayWeek + i) / 7 * 50, tm, Lunar, i + 1);
+            }
+        } while (display.nextPage());
+    }
+
+    onscreen.year = tm.tm_year;
+    onscreen.month = tm.tm_mon;
+    onscreen.day = tm.tm_mday;
 }
 
 /* The Image Transfer module sends the image of your choice to Bluefruit LE over UART.
@@ -128,6 +181,8 @@ bool EPDUartImage::onUartData(BLEUart *pUart)
 
         if (m_start_cb)
             m_start_cb(this);
+
+        display.setFullWindow();
     }
 
     while (true)

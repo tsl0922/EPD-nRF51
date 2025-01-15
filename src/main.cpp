@@ -10,6 +10,7 @@
 
 enum EPDMode
 {
+    NONE,
     CALENDAR,
     IMAGE,
 };
@@ -21,7 +22,7 @@ static EPDUartImage *pUartImage = nullptr;
 
 static bool advertising = true;
 static bool updateCalendar = true;
-static EPDMode epdMode = CALENDAR;
+static EPDMode epdMode = NONE;
 
 static void sleepModeEnter()
 {
@@ -35,6 +36,7 @@ static void handleCmd(String cmd)
     cmd.trim();
     if (cmd == "clear")
     {
+        epdMode = NONE;
         EPDClear();
     }
     else if (cmd == "sleep")
@@ -202,13 +204,14 @@ void loop()
     if (updateCalendar)
     {
         updateCalendar = false;
+        bool partial = epdMode == CALENDAR;
         epdMode = CALENDAR;
 
         NIMBLE_LOGI("EPD", "updating calendar...");
         uint32_t start = millis();
-        EPDDrawCalendar(pTime->getTime());
+        EPDDrawCalendar(pTime->getTime(), partial);
         NIMBLE_LOGI("EPD", "calendar updated, time: %lu ms", millis() - start);
     }
 
-    delay(1000);
+    delay(100);
 }
