@@ -340,7 +340,7 @@
 // <e> CLOCK_ENABLED - nrf_drv_clock - CLOCK peripheral driver
 //==========================================================
 #ifndef CLOCK_ENABLED
-#define CLOCK_ENABLED 1
+#define CLOCK_ENABLED 0
 #endif
 #if  CLOCK_ENABLED
 // <o> CLOCK_CONFIG_XTAL_FREQ  - HF XTAL Frequency
@@ -2658,7 +2658,7 @@
 // <e> UART_ENABLED - nrf_drv_uart - UART/UARTE peripheral driver
 //==========================================================
 #ifndef UART_ENABLED
-#define UART_ENABLED 1
+#define UART_ENABLED 0
 #endif
 #if  UART_ENABLED
 // <o> UART_DEFAULT_CONFIG_HWFC  - Hardware Flow Control
