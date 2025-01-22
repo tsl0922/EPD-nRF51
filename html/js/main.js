@@ -13,7 +13,6 @@ const BLE_UUID_UART_RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
 const BLE_UUID_UART_TX_CHAR = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
 const MAX_PACKET_SIZE = 20;
-const INTERLEAVED_COUNT = 50;
 
 function resetVariables() {
   gattServer = null;
@@ -40,8 +39,9 @@ async function write(data, status = false) {
 
   const chunkSize = MAX_PACKET_SIZE;
   const count = Math.round(data.length / chunkSize);
+  const interleavedCount = document.getElementById('interleavedcount').value;
   let chunkIdx = 1;
-  let noReplyCount = INTERLEAVED_COUNT;
+  let noReplyCount = interleavedCount;
 
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const part = bytes.slice(i, i + chunkSize);
@@ -55,7 +55,7 @@ async function write(data, status = false) {
       noReplyCount--;
     } else {
       await uartRXCharacteristic.writeValueWithResponse(part);
-      noReplyCount = INTERLEAVED_COUNT;
+      noReplyCount = interleavedCount;
     }
     chunkIdx++;
   }
@@ -117,8 +117,10 @@ function encodeBitmap(depth) {
 }
 
 async function sendimg() {
+  const mode = document.getElementById('dithering').value;
+  const depth = mode.startsWith("bwr") ? 2 : 1;
   startTime = Date.now();
-  if (await write(encodeBitmap(2), true)) {
+  if (await write(encodeBitmap(depth), true)) {
     const sendTime = (Date.now() - startTime) / 1000.0;
     addLog(`发送完成！耗时: ${sendTime}s`);
     setStatus(`发送完成！耗时: ${sendTime}s`);
@@ -128,7 +130,7 @@ async function sendimg() {
 function updateButtonStatus() {
   const connected = (gattServer != null && gattServer.connected);
   const uartStatus = (connected && uartRXCharacteristic != null) ? null : 'disabled';
-  const timeStatus = (connected &&timeCharacteristic != null) ? null : 'disabled';
+  const timeStatus = (connected && timeCharacteristic != null) ? null : 'disabled';
   document.getElementById("reconnectbutton").disabled = (gattServer == null || gattServer.connected) ? 'disabled' : null;
   document.getElementById("sendimgbutton").disabled = uartStatus;
   document.getElementById("synctimebutton").disabled = timeStatus;
@@ -173,7 +175,7 @@ async function reConnect() {
 }
 
 async function clearscreen() {
-  if(confirm('确认清除屏幕内容?')) {
+  if (confirm('确认清除屏幕内容?')) {
     write("clear");
   }
 }
@@ -259,8 +261,8 @@ function addLog(logTXT) {
   const log = document.getElementById("log");
   const now = new Date();
   const time = String(now.getHours()).padStart(2, '0') + ":" +
-         String(now.getMinutes()).padStart(2, '0') + ":" +
-         String(now.getSeconds()).padStart(2, '0') + " ";
+    String(now.getMinutes()).padStart(2, '0') + ":" +
+    String(now.getSeconds()).padStart(2, '0') + " ";
   log.innerHTML += '<span class="time">' + time + '</span>' + logTXT + '<br>';
   log.scrollTop = log.scrollHeight;
   while ((log.innerHTML.match(/<br>/g) || []).length > 20) {
@@ -287,7 +289,7 @@ function bytes2hex(data) {
     }, "");
 }
 
-async function update_image () {
+async function update_image() {
   let image = new Image();;
   const image_file = document.getElementById('image_file');
   if (image_file.files.length > 0) {
@@ -297,7 +299,7 @@ async function update_image () {
     image.src = document.getElementById('demo-img').src;
   }
 
-  image.onload = function(event) {
+  image.onload = function (event) {
     URL.revokeObjectURL(this.src);
     ctx.drawImage(image, 0, 0, image.width, image.height, 0, 0, canvas.width, canvas.height);
     convert_dithering()
@@ -305,7 +307,7 @@ async function update_image () {
 }
 
 function clear_canvas() {
-  if(confirm('确认清除画布内容?')) {
+  if (confirm('确认清除画布内容?')) {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
@@ -315,8 +317,6 @@ function convert_dithering() {
   const mode = document.getElementById('dithering').value;
   if (mode.startsWith('bwr')) {
     ditheringCanvasByPalette(canvas, bwrPalette, mode);
-  } else if (mode === '4gray') {
-    dithering(ctx, canvas.width, canvas.height, 4, "gray");
   } else {
     dithering(ctx, canvas.width, canvas.height, parseInt(document.getElementById('threshold').value), mode);
   }
