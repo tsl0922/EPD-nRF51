@@ -1,7 +1,7 @@
 #include <NimBLELog.h>
 #include "font.h"
 #include "lunar.h"
-#include "epd.h"
+#include "EPD.h"
 
 GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> display(GxEPD2_DRIVER_CLASS(EPD_CS_PIN, EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN));
 
