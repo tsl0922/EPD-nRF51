@@ -105,7 +105,7 @@ void EPDDrawCalendar(uint32_t timestamp, bool partial)
     uint8_t firstDayWeek = get_first_day_week(tm.tm_year + YEAR0, tm.tm_mon + 1);
     uint8_t monthMaxDays = thisMonthMaxDays(tm.tm_year + YEAR0, tm.tm_mon + 1);
 
-    if (partial && !display.epd2.hasColor)
+    if (partial && display.epd2.hasFastPartialUpdate)
     {
         display.setPartialWindow(0, 0, 400, 25);
         display.firstPage();
