@@ -5,7 +5,9 @@
 
 GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> display(GxEPD2_DRIVER_CLASS(EPD_CS_PIN, EPD_DC_PIN, EPD_RST_PIN, EPD_BUSY_PIN));
 
-U8G2_FOR_ADAFRUIT_GFX u8g2Fonts;
+static U8G2_FOR_ADAFRUIT_GFX u8g2Fonts;
+static uint16_t partialUpdates = 0;
+
 struct
 {
     uint16_t year;
@@ -101,6 +103,7 @@ void EPDDrawCalendar(uint32_t timestamp, bool partial)
     transformTime(timestamp, &tm);
 
     partial = partial && (onscreen.year == tm.tm_year) && (onscreen.month == tm.tm_mon);
+    partial = partial && (partialUpdates == 0 || partialUpdates % 5 > 0);
 
     uint8_t firstDayWeek = get_first_day_week(tm.tm_year + YEAR0, tm.tm_mon + 1);
     uint8_t monthMaxDays = thisMonthMaxDays(tm.tm_year + YEAR0, tm.tm_mon + 1);
@@ -128,6 +131,8 @@ void EPDDrawCalendar(uint32_t timestamp, bool partial)
                 } while (display.nextPage());
             }
         }
+
+        partialUpdates++;
     }
     else
     {
@@ -145,6 +150,8 @@ void EPDDrawCalendar(uint32_t timestamp, bool partial)
                 drawMonthDay(22 + (firstDayWeek + i) % 7 * 55, 60 + (firstDayWeek + i) / 7 * 50, tm, Lunar, i + 1);
             }
         } while (display.nextPage());
+
+        partialUpdates = 0;
     }
 
     onscreen.year = tm.tm_year;
