@@ -82,7 +82,7 @@ static void drawMonthDay(int16_t x, int16_t y, tm_t &tm, struct Lunar_Date &Luna
         uint8_t JQ = (tm.tm_mon + 1 - 1) * 2;
         if (day >= 15)
             JQ++;
-        if (display.epd2.hasColor)
+        if (display.epd2.hasColor && day != tm.tm_mday)
             u8g2Fonts.setForegroundColor(GxEPD_RED);
         u8g2Fonts.print(JieQiStr[JQ]);
     }
